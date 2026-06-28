@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resistor App</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-app: #ffffff; --bg-body: #111b21;
+  --text-main: #4b4b4b; --text-muted: #afafaf;
+  --green: #58cc02; --green-shadow: #58a700; --green-light: #d7ffb8;
+  --blue: #1cb0f6; --blue-shadow: #1899d6; --blue-light: #ddf4ff;
+  --red: #ff4b4b; --red-shadow: #ea2b2b; --red-light: #ffdfe0;
+  --purple-shadow: #a568cc;
+  --gray: #e5e5e5; --gray-shadow: #cecece;
+  --radius-lg: 20px; --radius-xl: 28px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Nunito', sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+body { background-color: var(--bg-body); display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+
+.app-frame {
+  width: 100%; max-width: 400px; height: 90vh; max-height: 850px;
+  background-color: var(--bg-app); border-radius: var(--radius-xl);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3); display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+.view-container { flex: 1; position: relative; overflow: hidden; }
+.view {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  padding: 24px; display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  opacity: 0; pointer-events: none; transform: translateX(30px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.view.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
+
+/* QUIZ VIEW: full flex column, no scroll on view itself */
+#view-quiz {
+  padding: 0;
+  overflow: hidden; /* scroll hanya di dalam scroll-area */
+}
+
+h1 { font-size: 26px; font-weight: 800; color: var(--text-main); margin-bottom: 8px; }
+h2 { font-size: 20px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; margin-top: 20px; }
+p  { font-size: 16px; font-weight: 600; color: var(--text-muted); line-height: 1.5; }
+
+.btn {
+  width: 100%; padding: 16px; border-radius: 16px; outline: none;
+  font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+  border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;
+  transform: translateY(0); transition: transform 0.1s, box-shadow 0.1s;
+}
+.btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 transparent !important; }
+.btn:disabled { background: var(--gray); color: var(--text-muted); box-shadow: 0 4px 0 var(--gray-shadow); cursor: not-allowed; }
+.btn-green { background: var(--green); color: white; box-shadow: 0 4px 0 var(--green-shadow); }
+.btn-blue  { background: var(--blue);  color: white; box-shadow: 0 4px 0 var(--blue-shadow); }
+.btn-red   { background: var(--red);   color: white; box-shadow: 0 4px 0 var(--red-shadow); }
+
+.menu-card {
+  border: 2px solid var(--gray); box-shadow: 0 4px 0 var(--gray-shadow);
+  border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px;
+  cursor: pointer; transition: 0.1s; background: white; transform: translateY(0); outline: none;
+}
+.menu-card:active { transform: translateY(4px); box-shadow: 0 0 0 transparent; }
+.menu-icon  { font-size: 36px; margin-bottom: 10px; }
+.menu-title { font-size: 20px; font-weight: 800; color: var(--text-main); }
+
+.info-card { border: 2px solid var(--gray); border-radius: 16px; padding: 16px; margin-bottom: 16px; background: white; }
+.info-badge { display: inline-block; background: var(--blue-light); color: var(--blue-shadow); font-weight: 900; padding: 4px 12px; border-radius: 10px; margin-bottom: 10px; font-size: 14px; }
+.info-formula { font-size: 18px; font-weight: 800; color: var(--text-main); margin-bottom: 8px; letter-spacing: 0.5px; }
+.info-list { list-style: none; margin-top: 8px; }
+.info-list li { font-size: 14px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: flex; gap: 8px; }
+
+.color-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid var(--gray); border-radius: 16px; margin-bottom: 8px; background: white; }
+.color-box  { width: 40px; height: 40px; border-radius: 12px; border: 2px solid rgba(0,0,0,0.1); flex-shrink: 0; }
+.color-info { flex: 1; }
+.color-name { font-weight: 800; font-size: 16px; color: var(--text-main); }
+.color-stats { font-size: 14px; font-weight: 700; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.stat-badge  { background: var(--gray); padding: 2px 8px; border-radius: 6px; color: var(--text-main); }
+
+/* ===== QUIZ LAYOUT ===== */
+.quiz-header {
+  display: flex; align-items: center; padding: 20px 20px 16px 20px; gap: 12px;
+  background: var(--bg-app); flex-shrink: 0;
+  border-bottom: 2px solid var(--gray);
+}
+.progress-bar { height: 16px; background: var(--gray); border-radius: 10px; flex: 1; position: relative; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); width: 0%; transition: width 0.4s; border-radius: 10px; position: relative; }
+.progress-fill::after { content:''; position:absolute; top:4px; left:8px; right:8px; height:4px; background:rgba(255,255,255,0.3); border-radius:4px; }
+.status-badge { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 4px; background: var(--gray); padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+.status-badge.timer  { color: var(--blue-shadow); background: var(--blue-light); }
+.status-badge.hearts { color: var(--red);         background: var(--red-light);  }
+
+/* Area yang bisa discroll */
+.quiz-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 20px 20px 20px;
+}
+
+/* Area bawah: feedback + tombol — FIXED di dalam view */
+.quiz-bottom {
+  flex-shrink: 0;
+  background: var(--bg-app);
+  border-top: 2px solid var(--gray);
+}
+
+/* Feedback panel — bagian dari quiz-bottom, tersembunyi dengan height */
+.feedback-panel {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0 20px;
+}
+.feedback-panel.show {
+  max-height: 160px;
+  padding: 16px 20px 12px 20px;
+}
+.feedback-panel.correct { background: var(--green-light); }
+.feedback-panel.wrong   { background: var(--red-light);   }
+.fb-title    { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+.fb-subtitle { font-size: 14px; font-weight: 700; line-height: 1.5; }
+.fb-title.correct-text { color: var(--green-shadow); }
+.fb-title.wrong-text   { color: var(--red-shadow);   }
+.fb-subtitle.correct-text { color: var(--green-shadow); }
+.fb-subtitle.wrong-text   { color: var(--red-shadow);   }
+
+.quiz-btn-area { padding: 14px 20px; }
+
+/* OPSI */
+.quiz-option {
+  padding: 16px; border-radius: 16px; border: 2px solid var(--gray);
+  box-shadow: 0 4px 0 var(--gray-shadow); outline: none;
+  font-size: 18px; font-weight: 800; color: var(--text-main); text-align: center;
+  margin-bottom: 12px; cursor: pointer; background: white;
+  transform: translateY(0); transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s, background 0.1s;
+}
+.quiz-option:last-child { margin-bottom: 0; }
+.quiz-option.selected    { border-color: var(--blue);  box-shadow: 0 4px 0 var(--blue-shadow);  background: var(--blue-light);  color: var(--blue); }
+.quiz-option.correct-ans { border-color: var(--green); box-shadow: 0 4px 0 var(--green-shadow); background: var(--green-light); color: var(--green-shadow); }
+.quiz-option.wrong-ans   { border-color: var(--red);   box-shadow: 0 4px 0 var(--red-shadow);   background: var(--red-light);   color: var(--red-shadow);   }
+.quiz-option:active { transform: translateY(4px); box-shadow: 0 0 0 transparent; }
+
+/* RESISTOR */
+.resistor-wrapper { display: flex; align-items: center; justify-content: center; margin: 16px 0 24px 0; }
+.wire { width: 40px; height: 8px; background: var(--gray-shadow); }
+.resistor-body {
+  height: 60px; width: 140px; background: #fcd34d; border-radius: 16px;
+  display: flex; justify-content: space-between; padding: 0 10px;
+  border: 3px solid #d97706; border-bottom: 6px solid #b45309; overflow: hidden;
+}
+.band { height: 100%; width: 14px; }
+
+/* ===== GAMEOVER / FINISH ===== */
+#view-gameover,
+#view-finish {
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-body);
+  padding: 24px;
+}
+
+.result-card {
+  background: white;
+  border-radius: 28px;
+  width: 100%;
+  padding: 32px 24px 28px 24px;
+  text-align: center;
+  box-shadow: 0 10px 0 rgba(0,0,0,0.25);
+}
+.result-emoji { font-size: 56px; margin-bottom: 12px; line-height: 1; }
+.result-title { font-size: 28px; font-weight: 900; margin-bottom: 6px; }
+.result-desc  { font-size: 15px; font-weight: 700; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+
+/* Stat row khusus finish */
+.finish-stats {
+  display: flex; justify-content: space-around;
+  background: #f8f8f8; border-radius: 18px;
+  padding: 16px 8px; margin-bottom: 24px;
+  border: 2px solid var(--gray);
+}
+.stat-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.stat-num   { font-size: 26px; font-weight: 900; color: var(--text-main); }
+.stat-label { font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+.result-divider { height: 2px; background: var(--gray); border-radius: 2px; margin-bottom: 20px; }
+
+/* NAV BAWAH */
+.bottom-nav { display: flex; justify-content: space-around; padding: 12px 10px; border-top: 2px solid var(--gray); background: var(--bg-app); z-index: 30; flex-shrink: 0; }
+.nav-item { padding: 10px 16px; border-radius: 14px; font-size: 24px; color: var(--text-muted); cursor: pointer; transition: 0.2s; border: 2px solid transparent; outline: none; }
+.nav-item.active { background: var(--blue-light); color: var(--blue); border-color: var(--blue-shadow); }
+
+@media (max-width: 480px) { .app-frame { border-radius: 0; height: 100vh; max-height: 100vh; } }
+</style>
+</head>
+<body>
+<div class="app-frame">
+  <div class="view-container">
+
+    <!-- HOME -->
+    <div id="view-home" class="view active">
+      <div style="text-align:center;margin-bottom:30px;margin-top:20px;">
+        <h1 style="color:var(--green);font-size:32px;">ResistorApp</h1>
+        <p>Belajar elektronika jadi seru!</p>
+      </div>
+      <div class="menu-card" onclick="nav('learn')">
+        <div class="menu-icon">📚</div>
+        <div class="menu-title">Buku Panduan</div>
+        <p>Pahami kode warna dan angka.</p>
+      </div>
+      <div class="menu-card" onclick="initQuizSession()">
+        <div class="menu-icon">🕹️</div>
+        <div class="menu-title">Mulai Kuis</div>
+        <p>Selesaikan 5 soal dalam 60 detik.</p>
+      </div>
+    </div>
+
+    <!-- LEARN -->
+    <div id="view-learn" class="view">
+      <h1>Cara Menghitung</h1>
+      <p style="margin-bottom:16px;"><br>Semua jenis resistor dibaca dari sisi gelang yang paling rapat menuju gelang yang memiliki jarak agak renggang (gelang toleransi di ujung akhir).</p>
+      <div class="info-card">
+        <div class="info-badge">4 Gelang (Standar)</div>
+        <div class="info-formula">Nilai = (G1, G2) × G3</div>
+        <ul class="info-list">
+          <li><span style="font-size:16px">🟢</span> G1 & G2 = Dua digit angka pertama</li>
+          <li><span style="font-size:16px">✖️</span> G3 = Pengali (jumlah nol)</li>
+          <li><span style="font-size:16px">⚖️</span> G4 = Toleransi pabrik</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <div class="info-badge" style="background:var(--purple-shadow);color:white;">5 Gelang (Presisi)</div>
+        <div class="info-formula">Nilai = (G1, G2, G3) × G4</div>
+        <ul class="info-list">
+          <li><span style="font-size:16px">🟢</span> G1, G2, G3 = Tiga digit angka</li>
+          <li><span style="font-size:16px">✖️</span> G4 = Pengali (jumlah nol)</li>
+          <li><span style="font-size:16px">⚖️</span> G5 = Toleransi pabrik</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <div class="info-badge" style="background:#ea2b2b;color:white;">6 Gelang (Khusus)</div>
+        <div class="info-formula">Nilai = (G1, G2, G3) × G4</div>
+        <p style="font-size:14px;font-weight:700;color:var(--text-muted);margin-top:8px;">Sama persis seperti 5 gelang, namun memiliki tambahan:</p>
+        <ul class="info-list">
+          <li><span style="font-size:16px">🌡️</span> G6 = Koefisien Suhu (PPM).</li>
+        </ul>
+      </div>
+      <h2 style="margin-top:30px;">Kamus Warna</h2>
+      <p style="margin-bottom:20px;">Hafalkan nilai ini untuk mengisi digit angka (G1/G2) dan pengali.</p>
+      <div id="color-list"></div>
+    </div>
+
+    <!-- QUIZ -->
+    <div id="view-quiz" class="view">
+      <!-- Header sticky -->
+      <div class="quiz-header">
+        <div style="font-size:24px;color:var(--gray-shadow);cursor:pointer;font-weight:900;line-height:1;" onclick="quitQuiz()">✖</div>
+        <div class="progress-bar"><div class="progress-fill" id="quiz-progress"></div></div>
+        <div class="status-badge timer">⏱️ <span id="time-left">60</span>s</div>
+        <div class="status-badge hearts">❤️ <span id="heart-count">3</span></div>
+      </div>
+
+      <!-- Scrollable area -->
+      <div class="quiz-scroll">
+        <h1 style="text-align:center;margin-top:4px;">Nilai resistor ini?</h1>
+        <div class="resistor-wrapper">
+          <div class="wire"></div>
+          <div class="resistor-body">
+            <div class="band" id="qb0"></div>
+            <div class="band" id="qb1"></div>
+            <div class="band" id="qb2"></div>
+            <div class="band" id="qb3" style="background:#ca8a04;"></div>
+          </div>
+          <div class="wire"></div>
+        </div>
+        <div id="quiz-options"></div>
+      </div>
+
+      <!-- Bottom fixed area: feedback + button -->
+      <div class="quiz-bottom">
+        <div id="feedback-panel" class="feedback-panel">
+          <div class="fb-title" id="fb-title"></div>
+          <div class="fb-subtitle" id="fb-subtitle"></div>
+        </div>
+        <div class="quiz-btn-area">
+          <button id="quiz-btn" class="btn btn-green" disabled onclick="handleQuizAction()">PERIKSA</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINISH -->
+    <div id="view-finish" class="view">
+      <div class="result-card">
+        <div class="result-emoji">🏆</div>
+        <div class="result-title" style="color:var(--green);">Kuis Selesai!</div>
+        <div class="result-desc">Kamu berhasil menyelesaikan semua soal.</div>
+        <div class="finish-stats">
+          <div class="stat-item">
+            <div class="stat-num" id="fin-time">—</div>
+            <div class="stat-label">Sisa Waktu</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num" id="fin-score">—</div>
+            <div class="stat-label">Nilai</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num" id="fin-hearts">—</div>
+            <div class="stat-label">Nyawa Sisa</div>
+          </div>
+        </div>
+        <div class="result-divider"></div>
+        <button class="btn btn-green" style="margin-bottom:12px;" onclick="initQuizSession()">Main Lagi</button>
+        <button class="btn btn-blue" onclick="nav('home')">Menu Utama</button>
+      </div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="view-gameover" class="view">
+      <div class="result-card">
+        <div class="result-emoji" id="go-emoji">💀</div>
+        <div class="result-title" id="go-title" style="color:var(--red);">Game Over!</div>
+        <div class="result-desc"  id="go-desc"></div>
+        <div class="result-divider"></div>
+        <button class="btn btn-blue" style="margin-bottom:12px;" onclick="initQuizSession()">Coba Lagi</button>
+        <button class="btn btn-green" onclick="nav('home')">Menu Utama</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="bottom-nav" id="bottom-nav">
+    <div class="nav-item active" id="nav-home"  onclick="nav('home')">🏠</div>
+    <div class="nav-item"        id="nav-learn" onclick="nav('learn')">📚</div>
+    <div class="nav-item"        id="nav-quiz"  onclick="initQuizSession()">🕹️</div>
+  </div>
+</div>
+
+<script>
+const colorData = [
+  { nama:'Hitam',  val:0, mul:'x1',    mulVal:1,          hex:'#262626' },
+  { nama:'Coklat', val:1, mul:'x10',   mulVal:10,         hex:'#8b4513' },
+  { nama:'Merah',  val:2, mul:'x100',  mulVal:100,        hex:'#dc2626' },
+  { nama:'Oranye', val:3, mul:'x1K',   mulVal:1000,       hex:'#ea580c' },
+  { nama:'Kuning', val:4, mul:'x10K',  mulVal:10000,      hex:'#eab308' },
+  { nama:'Hijau',  val:5, mul:'x100K', mulVal:100000,     hex:'#16a34a' },
+  { nama:'Biru',   val:6, mul:'x1M',   mulVal:1000000,    hex:'#2563eb' },
+  { nama:'Ungu',   val:7, mul:'x10M',  mulVal:10000000,   hex:'#9333ea' },
+  { nama:'Abu',    val:8, mul:'x100M', mulVal:100000000,  hex:'#737373' },
+  { nama:'Putih',  val:9, mul:'x1G',   mulVal:1000000000, hex:'#f5f5f5' }
+];
+
+const MAX_MUL_IDX = 6;
+const TOTAL_SOAL  = 5;
+const MAX_NYAWA   = 3;
+const TOTAL_WAKTU = 60;
+
+// Render kamus warna
+const listContainer = document.getElementById('color-list');
+colorData.forEach(c => {
+  listContainer.innerHTML += `
+    <div class="color-row">
+      <div class="color-box" style="background:${c.hex};${c.nama==='Putih'?'border:2px solid #cecece':''}"></div>
+      <div class="color-info">
+        <div class="color-name">${c.nama}</div>
+        <div class="color-stats">
+          <div class="stat-badge">Angka: ${c.val}</div>
+          <div class="stat-badge">Pengali: ${c.mul}</div>
+        </div>
+      </div>
+    </div>`;
+});
+
+function formatRes(val) {
+  if (val >= 1e6) return parseFloat((val / 1e6).toPrecision(4)) + ' MΩ';
+  if (val >= 1e3) return parseFloat((val / 1e3).toPrecision(4)) + ' kΩ';
+  return val + ' Ω';
+}
+
+// ===== NAVIGASI =====
+function nav(viewId) {
+  stopTimer();
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + viewId).classList.add('active');
+
+  const hiddenViews = ['gameover', 'finish'];
+  document.getElementById('bottom-nav').style.display = hiddenViews.includes(viewId) ? 'none' : 'flex';
+
+  if (!hiddenViews.includes(viewId)) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const navEl = document.getElementById('nav-' + viewId);
+    if (navEl) navEl.classList.add('active');
+  }
+}
+
+function quitQuiz() { stopTimer(); nav('home'); }
+
+// ===== TIMER =====
+let timerId = null;
+function stopTimer() { clearInterval(timerId); timerId = null; }
+function startTimer() {
+  stopTimer();
+  document.getElementById('time-left').innerText = timeLeft;
+  timerId = setInterval(() => {
+    timeLeft--;
+    document.getElementById('time-left').innerText = timeLeft;
+    if (timeLeft <= 0) triggerGameOver('⏰', 'Waktu Habis!', 'Kamu kehabisan waktu.\nLain kali lebih cepat ya!');
+  }, 1000);
+}
+
+// ===== STATE =====
+let step, nyawa, timeLeft, answered, jawabanDipilih, jawabanBenar, currentBands;
+
+function initQuizSession() {
+  step     = 0;
+  nyawa    = MAX_NYAWA;
+  timeLeft = TOTAL_WAKTU;
+  document.getElementById('heart-count').innerText    = nyawa;
+  document.getElementById('quiz-progress').style.width = '0%';
+  nav('quiz');
+  generateSoal();
+  startTimer();
+}
+
+// ===== GENERATE SOAL =====
+function generateSoal() {
+  answered       = false;
+  jawabanDipilih = null;
+
+  const btn   = document.getElementById('quiz-btn');
+  const panel = document.getElementById('feedback-panel');
+
+  btn.innerText = 'PERIKSA';
+  btn.className = 'btn btn-green';
+  btn.disabled  = true;
+  panel.classList.remove('show', 'correct', 'wrong');
+  document.getElementById('fb-title').className   = 'fb-title';
+  document.getElementById('fb-subtitle').className= 'fb-subtitle';
+
+  // Scroll opsi kembali ke atas
+  const scrollArea = document.querySelector('.quiz-scroll');
+  if (scrollArea) scrollArea.scrollTop = 0;
+
+  const d1  = colorData[Math.floor(Math.random() * 9) + 1];
+  const d2  = colorData[Math.floor(Math.random() * 10)];
+  const mul = colorData[Math.floor(Math.random() * (MAX_MUL_IDX + 1))];
+
+  currentBands = { d1, d2, mul };
+  jawabanBenar = ((d1.val * 10) + d2.val) * mul.mulVal;
+
+  document.getElementById('qb0').style.backgroundColor = d1.hex;
+  document.getElementById('qb1').style.backgroundColor = d2.hex;
+  document.getElementById('qb2').style.backgroundColor = mul.hex;
+
+  // Buat 3 opsi unik
+  const opsiSet = new Set([jawabanBenar]);
+
+  const mulIdx2 = Math.min(colorData.indexOf(mul) + 1, MAX_MUL_IDX);
+  opsiSet.add(((d1.val * 10) + d2.val) * colorData[mulIdx2].mulVal);
+
+  const digitTerbalik = ((d2.val * 10) + d1.val) * mul.mulVal;
+  if (!opsiSet.has(digitTerbalik) && digitTerbalik > 0) {
+    opsiSet.add(digitTerbalik);
+  } else {
+    const mulIdx3 = Math.max(colorData.indexOf(mul) - 1, 0);
+    const salah3  = ((d1.val * 10) + d2.val) * colorData[mulIdx3].mulVal;
+    opsiSet.add(opsiSet.has(salah3) ? jawabanBenar * 100 : salah3);
+  }
+
+  const opsi = [...opsiSet].sort(() => Math.random() - 0.5);
+
+  const container = document.getElementById('quiz-options');
+  container.innerHTML = '';
+  opsi.forEach(o => {
+    const div     = document.createElement('div');
+    div.className  = 'quiz-option';
+    div.innerText  = formatRes(o);
+    div.onclick    = () => {
+      if (answered) return;
+      document.querySelectorAll('.quiz-option').forEach(el => el.classList.remove('selected'));
+      div.classList.add('selected');
+      jawabanDipilih = o;
+      btn.disabled   = false;
+    };
+    container.appendChild(div);
+  });
+}
+
+// ===== HANDLE KUIS =====
+function handleQuizAction() {
+  const btn    = document.getElementById('quiz-btn');
+  const panel  = document.getElementById('feedback-panel');
+  const fbTitle= document.getElementById('fb-title');
+  const fbSub  = document.getElementById('fb-subtitle');
+
+  if (!answered) {
+    answered = true;
+
+    // Highlight opsi
+    document.querySelectorAll('.quiz-option').forEach(el => {
+      const isBenar = el.innerText === formatRes(jawabanBenar);
+      const isPilih = el.innerText === formatRes(jawabanDipilih);
+      if (isBenar)      el.classList.add('correct-ans');
+      else if (isPilih) el.classList.add('wrong-ans');
+      el.style.cursor = 'default';
+    });
+
+    if (jawabanDipilih === jawabanBenar) {
+      panel.classList.add('show', 'correct');
+      fbTitle.className   = 'fb-title correct-text';
+      fbSub.className     = 'fb-subtitle correct-text';
+      fbTitle.innerText   = '🎉 Luar biasa!';
+      fbSub.innerText     = 'Jawaban kamu tepat!';
+      btn.className       = 'btn btn-green';
+      step++;
+      document.getElementById('quiz-progress').style.width = `${(step / TOTAL_SOAL) * 100}%`;
+    } else {
+      panel.classList.add('show', 'wrong');
+      fbTitle.className   = 'fb-title wrong-text';
+      fbSub.className     = 'fb-subtitle wrong-text';
+      fbTitle.innerText   = '❌ Kurang tepat';
+      fbSub.innerHTML     = `Jawaban benar: <b>${formatRes(jawabanBenar)}</b>`;
+      btn.className       = 'btn btn-red';
+      nyawa--;
+      document.getElementById('heart-count').innerText = nyawa;
+    }
+    btn.innerText = 'LANJUT';
+
+  } else {
+    if (nyawa <= 0) {
+      triggerGameOver('💔', 'Nyawa Habis!', 'Kamu membuat 3 kesalahan.\nJangan menyerah, coba lagi!');
+    } else if (step >= TOTAL_SOAL) {
+      triggerFinish();
+    } else {
+      generateSoal();
+    }
+  }
+}
+
+function triggerGameOver(emoji, title, desc) {
+  stopTimer();
+  document.getElementById('go-emoji').innerText = emoji;
+  document.getElementById('go-title').innerText = title;
+  document.getElementById('go-desc').innerText  = desc;
+  nav('gameover');
+}
+
+function triggerFinish() {
+  stopTimer();
+  const errors = MAX_NYAWA - nyawa;
+  const score  = Math.round(((TOTAL_SOAL - errors) / TOTAL_SOAL) * 100);
+  document.getElementById('fin-time').innerText   = timeLeft + 's';
+  document.getElementById('fin-score').innerText  = score + '%';
+  document.getElementById('fin-hearts').innerText = '❤️'.repeat(nyawa) || '—';
+  nav('finish');
+}
+</script>
+</body>
+</html>
